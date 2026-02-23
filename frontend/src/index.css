@@ -1,74 +1,140 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
+@theme {
+  --font-sans: "Inter", system-ui, sans-serif;
+
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+
+  --color-surface-950: #0a0a0f;
+  --color-surface-900: #0f0f17;
+  --color-surface-800: #16161f;
+  --color-surface-700: #1e1e2e;
+  --color-surface-600: #252537;
+}
+
+
+/* ─── Global Reset & Dark Theme Base ─────────────────────────── */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+  font-family: "Inter", system-ui, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  --color-brand: #6366f1;
+  --color-brand-hover: #4f46e5;
+  --color-surface-950: #0a0a0f;
+  --color-surface-900: #0f0f17;
+  --color-surface-800: #16161f;
+  --color-surface-700: #1e1e2e;
+  --color-border: rgba(255, 255, 255, 0.07);
+  --color-text: #e2e8f0;
+  --color-text-muted: #94a3b8;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
-a:hover {
-  color: #535bf2;
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
+  background-color: var(--color-surface-950);
+  color: var(--color-text);
   min-height: 100vh;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* ─── Focus Ring Utility ──────────────────────────────────────── */
+.focus-brand:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-surface-900), 0 0 0 4px var(--color-brand);
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+/* ─── Gradient Border Card ────────────────────────────────────── */
+.card-gradient {
+  position: relative;
+  background: var(--color-surface-800);
+  border-radius: 1.25rem;
+}
+
+.card-gradient::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: calc(1.25rem + 1px);
+  background: linear-gradient(135deg,
+      rgba(99, 102, 241, 0.4) 0%,
+      rgba(30, 30, 46, 0) 50%,
+      rgba(99, 102, 241, 0.15) 100%);
+  z-index: -1;
+}
+
+/* ─── Input Base ─────────────────────────────────────────────── */
+.input-dark {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.625rem;
+  background: var(--color-surface-700);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: 0.9375rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-dark::placeholder {
+  color: var(--color-text-muted);
+}
+
+.input-dark:focus {
+  outline: none;
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+/* ─── Primary Button ─────────────────────────────────────────── */
+.btn-primary {
+  width: 100%;
+  padding: 0.8125rem 1.5rem;
+  border-radius: 0.625rem;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  letter-spacing: 0.01em;
+  border: none;
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
 }
 
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
 
+.btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
