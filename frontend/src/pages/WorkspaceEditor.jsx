@@ -2,9 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useWorkspaces } from "../context/WorkspacesContext";
 import {
-    Plus, CheckSquare, FileText, Share2, Trash2, X, Table, Image
+    Plus, CheckSquare, FileText, Share2, Trash2, X, Table, Image as ImageIcon, Star
 } from "lucide-react";
 import { inviteUser } from "../api/workspaces";
+import { uploadImage } from "../api/uploads";
 
 const ShareDialog = ({ ws, onClose }) => {
     const [email, setEmail] = useState("");
@@ -78,11 +79,12 @@ const FlyoutItem = ({ icon: Icon, label, onClick, destructive }) => (
 const WorkspaceEditor = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { workspaces, update, trash, refresh } = useWorkspaces();
+    const { workspaces, update, trash, refresh, toggleFavorite } = useWorkspaces();
     const ws = workspaces.find((w) => w.id === id);
     const [showFlyout, setShowFlyout] = useState(false);
     const [showShareDialog, setShowShareDialog] = useState(false);
     const contentRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     // Poll for updates on shared workspaces every 5 seconds
     useEffect(() => {
@@ -136,19 +138,36 @@ const WorkspaceEditor = () => {
         update(ws.id, { todos: ws.todos.filter((t) => t.id !== todoId) });
     };
 
+    const handleImageUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const { data } = await uploadImage(file);
+            if (contentRef.current) {
+                const img = `<img src="${data.url}" alt="Uploaded image" style="max-width:100%; height:auto; border-radius:8px; margin:16px 0; display:block;" />`;
+                contentRef.current.innerHTML += img;
+                handleContentChange();
+            }
+        } catch (err) {
+            console.error("Image upload failed", err);
+            alert("Failed to upload image. Please try again.");
+        } finally {
+            setShowFlyout(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    };
+
+    const triggerImageUpload = () => {
+        if (fileInputRef.current) {
+            fileInputRef.current.click();
+        }
+    };
+
     const insertMockTable = () => {
         if (contentRef.current) {
             const table = `<table style="width:100%;border-collapse:collapse;margin:16px 0;"><thead><tr><th style="border:1px solid hsl(240 10% 16%);padding:8px 12px;text-align:left;background:hsl(240 14% 15%);color:hsl(215 28% 90%);">Column A</th><th style="border:1px solid hsl(240 10% 16%);padding:8px 12px;text-align:left;background:hsl(240 14% 15%);color:hsl(215 28% 90%);">Column B</th><th style="border:1px solid hsl(240 10% 16%);padding:8px 12px;text-align:left;background:hsl(240 14% 15%);color:hsl(215 28% 90%);">Column C</th></tr></thead><tbody><tr><td style="border:1px solid hsl(240 10% 16%);padding:8px 12px;color:hsl(215 15% 60%);">Data 1</td><td style="border:1px solid hsl(240 10% 16%);padding:8px 12px;color:hsl(215 15% 60%);">Data 2</td><td style="border:1px solid hsl(240 10% 16%);padding:8px 12px;color:hsl(215 15% 60%);">Data 3</td></tr><tr><td style="border:1px solid hsl(240 10% 16%);padding:8px 12px;color:hsl(215 15% 60%);">Data 4</td><td style="border:1px solid hsl(240 10% 16%);padding:8px 12px;color:hsl(215 15% 60%);">Data 5</td><td style="border:1px solid hsl(240 10% 16%);padding:8px 12px;color:hsl(215 15% 60%);">Data 6</td></tr></tbody></table>`;
             contentRef.current.innerHTML += table;
-            handleContentChange();
-        }
-        setShowFlyout(false);
-    };
-
-    const insertPlaceholderImage = () => {
-        if (contentRef.current) {
-            const img = `<div style="margin:16px 0;padding:48px;border-radius:12px;background:hsl(240 14% 15%);border:1px dashed hsl(240 10% 16%);display:flex;align-items:center;justify-content:center;color:hsl(215 15% 60%);font-size:14px;">📷 Image placeholder — click to replace</div>`;
-            contentRef.current.innerHTML += img;
             handleContentChange();
         }
         setShowFlyout(false);
@@ -161,6 +180,14 @@ const WorkspaceEditor = () => {
 
     return (
         <div className="flex h-full">
+            {/* Hidden image upload input */}
+            <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleImageUpload}
+            />
             {/* Flyout trigger */}
             <div className="relative">
                 <button
@@ -176,7 +203,7 @@ const WorkspaceEditor = () => {
                         <FlyoutItem icon={CheckSquare} label="Add To-Do" onClick={addTodo} />
                         <FlyoutItem icon={FileText} label="Add Note" onClick={() => { contentRef.current?.focus(); setShowFlyout(false); }} />
                         <FlyoutItem icon={Table} label="Insert Table" onClick={insertMockTable} />
-                        <FlyoutItem icon={Image} label="Insert Image" onClick={insertPlaceholderImage} />
+                        <FlyoutItem icon={ImageIcon} label="Insert Image" onClick={triggerImageUpload} />
                         {ws.role === "owner" && (
                             <>
                                 <FlyoutItem icon={Share2} label="Share Workspace" onClick={() => { setShowShareDialog(true); setShowFlyout(false); }} />
@@ -198,6 +225,16 @@ const WorkspaceEditor = () => {
                     className="w-full text-4xl md:text-5xl font-bold bg-transparent border-none outline-none text-foreground placeholder-muted-foreground mb-2"
                     placeholder="Untitled"
                 />
+
+                {/* Favorite Toggle (Star) */}
+                <button
+                    onClick={() => toggleFavorite(ws.id)}
+                    className={`absolute top-12 right-6 p-2 rounded-full transition-all hover:bg-surface-600 ${ws.is_favorite ? "text-primary" : "text-muted-foreground"}`}
+                    title={ws.is_favorite ? "Remove from favorites" : "Add to favorites"}
+                >
+                    <Star size={24} fill={ws.is_favorite ? "currentColor" : "none"} />
+                </button>
+
                 <p className="text-xs text-muted-foreground mb-8">
                     {ws.type === "shared" ? "🌐 Shared workspace" : "🔒 Private workspace"} · {ws.role === "owner" ? "🛡️ Owner" : "👤 Participant"} · Created {new Date(ws.createdAt).toLocaleDateString()}
                 </p>

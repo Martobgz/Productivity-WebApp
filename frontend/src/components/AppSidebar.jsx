@@ -5,7 +5,7 @@ import { useWorkspaces } from "../context/WorkspacesContext";
 import { getInvitations } from "../api/workspaces";
 import {
     User, Search, Home, Calendar, Inbox, Settings, Trash2, LogOut, ChevronLeft, ChevronRight,
-    FileText, Users
+    FileText, Users, Star
 } from "lucide-react";
 import LogoMark from "./LogoMark";
 
@@ -61,14 +61,17 @@ const AppSidebar = () => {
             </div>
 
             {/* Profile */}
-            <div className={`flex items-center gap-3 p-3 border-b border-border ${collapsed ? "justify-center" : ""}`}>
+            <div
+                onClick={() => navigate("/dashboard/profile")}
+                className={`flex items-center gap-3 p-3 border-b border-border cursor-pointer hover:bg-accent/50 transition-colors ${collapsed ? "justify-center" : ""}`}
+            >
                 <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary shrink-0">
                     <User size={16} />
                 </div>
                 {!collapsed && (
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground truncate">{user?.displayName || "User"}</p>
-                        <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                        <p className="text-[10px] text-muted-foreground truncate uppercase font-semibold">View Profile</p>
                     </div>
                 )}
             </div>
@@ -108,6 +111,36 @@ const AppSidebar = () => {
                         );
                     })}
                 </div>
+
+                {/* Favorites Section */}
+                {workspaces.some(ws => ws.is_favorite) && (
+                    <div className="space-y-1">
+                        {!collapsed && (
+                            <div className="flex items-center gap-2 px-3 mb-2">
+                                <Star size={10} className="text-primary fill-primary" />
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                    Favorites
+                                </p>
+                            </div>
+                        )}
+                        {workspaces.filter(ws => ws.is_favorite).map((ws) => {
+                            const active = location.pathname === `/dashboard/workspace/${ws.id}`;
+                            return (
+                                <button
+                                    key={`fav-${ws.id}`}
+                                    onClick={() => navigate(`/dashboard/workspace/${ws.id}`)}
+                                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${active
+                                        ? "bg-primary/10 text-primary font-medium"
+                                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                                        } ${collapsed ? "justify-center" : ""}`}
+                                >
+                                    <Star size={18} className={ws.is_favorite ? "text-primary fill-primary" : ""} />
+                                    {!collapsed && <span className="truncate">{ws.name || "Untitled"}</span>}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
 
                 {/* Workspaces Section */}
                 <div className="space-y-1">

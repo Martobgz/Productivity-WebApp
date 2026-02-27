@@ -10,10 +10,15 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+class UserUpdate(BaseModel):
+    display_name: str | None = None
+    bio: str | None = None
+
 class UserResponse(BaseModel):
     id: int
     email: EmailStr
     display_name: str | None = None
+    bio: str | None = None
 
     class Config:
         from_attributes = True
@@ -37,9 +42,13 @@ class WorkspaceUpdate(BaseModel):
     todos: list | None = None
     deleted: bool | None = None
 
+class WorkspaceFavoriteUpdate(BaseModel):
+    is_favorite: bool
+
 class WorkspaceResponse(WorkspaceBase):
     user_id: int
     role: str | None = "owner"
+    is_favorite: bool | None = False
 
     class Config:
         from_attributes = True

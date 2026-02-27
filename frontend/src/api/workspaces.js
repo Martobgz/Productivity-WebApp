@@ -24,3 +24,4 @@ export const inviteUser = (id, email) => API.post(`/${id}/invite`, { email });
 export const getInvitations = () => API.get("/invitations");
 export const acceptInvitation = (id) => API.post(`/invitations/${id}/accept`);
 export const declineInvitation = (id) => API.post(`/invitations/${id}/decline`);
+export const toggleFavorite = (id, isFavorite) => API.patch(`/${id}/favorite`, { is_favorite: isFavorite });

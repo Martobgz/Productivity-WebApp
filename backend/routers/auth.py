@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from models import User
-from schemas import UserCreate, UserLogin
+from schemas import UserCreate, UserLogin, UserUpdate, UserResponse
 from auth import hash_password, verify_password, create_access_token
-from deps import get_db
+from deps import get_db, get_current_user
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -23,7 +23,8 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
         new_user = User(
             email=normalized_email,
             hashed_password=hash_password(user.password),
-            display_name=user.full_name or normalized_email.split("@")[0]
+            display_name=user.full_name or normalized_email.split("@")[0],
+            bio=""
         )
         db.add(new_user)
         db.commit()
@@ -36,7 +37,8 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
                 "session": {
                     "access_token": token,
                     "email": new_user.email,
-                    "display_name": new_user.display_name
+                    "display_name": new_user.display_name,
+                    "bio": new_user.bio
                 }
             }
         }
@@ -64,7 +66,18 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
             "session": {
                 "access_token": token,
                 "email": db_user.email,
-                "display_name": db_user.display_name
+                "display_name": db_user.display_name,
+                "bio": db_user.bio
             }
         }
     }
+
+@router.patch("/profile", response_model=UserResponse)
+def update_profile(user_update: UserUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    update_data = user_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(current_user, key, value)
+    
+    db.commit()
+    db.refresh(current_user)
+    return current_user

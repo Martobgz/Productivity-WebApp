@@ -1,11 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { getWorkspaces, createWorkspace, updateWorkspace, deleteWorkspace, toggleFavorite as toggleFavoriteAPI } from "../api/workspaces";
 
 const WorkspacesContext = createContext(null);
 
 const STORAGE_KEY = "notion_workspaces";
-
-import { getWorkspaces, createWorkspace, updateWorkspace, deleteWorkspace } from "../api/workspaces";
 
 export const WorkspacesProvider = ({ children }) => {
     const [allWorkspaces, setAllWorkspaces] = useState([]);
@@ -58,6 +57,8 @@ export const WorkspacesProvider = ({ children }) => {
             todos: [],
             createdAt: new Date().toISOString(),
             deleted: false,
+            role: "owner",
+            is_favorite: false
         };
         setAllWorkspaces((prev) => [...prev, ws]);
         // sync to backend
@@ -86,11 +87,28 @@ export const WorkspacesProvider = ({ children }) => {
         deleteWorkspace(id).catch(console.error);
     }, []);
 
+    const toggleFavorite = useCallback(async (id) => {
+        const ws = allWorkspaces.find(w => w.id === id);
+        if (!ws) return;
+
+        const newFavorite = !ws.is_favorite;
+        // Optimistic update
+        setAllWorkspaces((prev) => prev.map((w) => (w.id === id ? { ...w, is_favorite: newFavorite } : w)));
+
+        try {
+            await toggleFavoriteAPI(id, newFavorite);
+        } catch (err) {
+            console.error("Failed to toggle favorite", err);
+            // Rollback
+            setAllWorkspaces((prev) => prev.map((w) => (w.id === id ? { ...w, is_favorite: !newFavorite } : w)));
+        }
+    }, [allWorkspaces]);
+
     const active = allWorkspaces.filter((w) => !w.deleted);
     const trashed = allWorkspaces.filter((w) => w.deleted);
 
     return (
-        <WorkspacesContext.Provider value={{ workspaces: active, trashed, create, update, trash, restore, permanentDelete, refresh }}>
+        <WorkspacesContext.Provider value={{ workspaces: active, trashed, create, update, trash, restore, permanentDelete, refresh, toggleFavorite }}>
             {children}
         </WorkspacesContext.Provider>
     );

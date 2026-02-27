@@ -4,7 +4,7 @@ from typing import List
 from sqlalchemy import or_, exists
 
 from models import Workspace, User, WorkspaceMember
-from schemas import WorkspaceCreate, WorkspaceUpdate, WorkspaceResponse, InviteUser, UserResponse
+from schemas import WorkspaceCreate, WorkspaceUpdate, WorkspaceResponse, InviteUser, UserResponse, WorkspaceFavoriteUpdate
 from deps import get_db, get_current_user
 
 router = APIRouter(prefix="/api/workspaces", tags=["workspaces"])
@@ -19,6 +19,7 @@ def get_workspaces(db: Session = Depends(get_db), current_user: User = Depends(g
     
     workspace_ids = [m.workspace_id for m in memberships]
     role_map = {m.workspace_id: m.role for m in memberships}
+    favorite_map = {m.workspace_id: m.is_favorite for m in memberships}
     
     # Query workspaces based on these IDs
     workspaces = db.query(Workspace).filter(
@@ -29,6 +30,7 @@ def get_workspaces(db: Session = Depends(get_db), current_user: User = Depends(g
     # Attach role to each workspace object for the response
     for ws in workspaces:
         ws.role = role_map.get(ws.id, "participant")
+        ws.is_favorite = favorite_map.get(ws.id, False)
         
     return workspaces
 
@@ -57,6 +59,7 @@ def create_workspace(workspace: WorkspaceCreate, db: Session = Depends(get_db), 
     db.commit()
     db.refresh(new_ws)
     new_ws.role = "owner"
+    new_ws.is_favorite = False
     return new_ws
 
 @router.post("/{id}/invite", response_model=UserResponse)
@@ -164,6 +167,26 @@ def update_workspace(id: str, workspace: WorkspaceUpdate, db: Session = Depends(
     db.commit()
     db.refresh(db_ws)
     db_ws.role = membership.role
+    db_ws.is_favorite = membership.is_favorite
+    return db_ws
+
+@router.patch("/{id}/favorite", response_model=WorkspaceResponse)
+def toggle_favorite(id: str, fav: WorkspaceFavoriteUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    membership = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == id,
+        WorkspaceMember.user_id == current_user.id,
+        WorkspaceMember.status == "accepted"
+    ).first()
+    
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    membership.is_favorite = fav.is_favorite
+    db.commit()
+    
+    db_ws = db.query(Workspace).filter(Workspace.id == id).first()
+    db_ws.role = membership.role
+    db_ws.is_favorite = membership.is_favorite
     return db_ws
 
 @router.delete("/{id}")

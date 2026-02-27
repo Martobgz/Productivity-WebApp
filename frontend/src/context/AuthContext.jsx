@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect } from "react";
-import { login as loginRequest, signup as signupRequest } from "../api/auth";
+import { login as loginRequest, signup as signupRequest, updateProfile as updateProfileRequest } from "../api/auth";
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const AuthContext = createContext();
@@ -10,7 +10,8 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem("token");
     const email = localStorage.getItem("userEmail");
     const displayName = localStorage.getItem("userDisplayName");
-    return token && email ? { email, displayName } : null;
+    const bio = localStorage.getItem("userBio");
+    return token && email ? { email, displayName, bio } : null;
   });
 
 
@@ -21,7 +22,7 @@ export const AuthProvider = ({ children }) => {
     // Clear previous user's cached workspaces before logging in
     localStorage.removeItem("notion_workspaces");
     const res = await loginRequest({ ...data, email });
-    const { access_token: token, email: backendEmail, display_name: backendDisplayName } = res.data?.data?.session || {};
+    const { access_token: token, email: backendEmail, display_name: backendDisplayName, bio: backendBio } = res.data?.data?.session || {};
 
     if (!token) {
       throw new Error("No access token returned. Please check your credentials.");
@@ -29,11 +30,13 @@ export const AuthProvider = ({ children }) => {
 
     const finalEmail = backendEmail || email;
     const finalDisplayName = backendDisplayName || finalEmail.split("@")[0];
+    const finalBio = backendBio || "";
 
     localStorage.setItem("token", token);
     localStorage.setItem("userEmail", finalEmail);
     localStorage.setItem("userDisplayName", finalDisplayName);
-    setUser({ email: finalEmail, displayName: finalDisplayName });
+    localStorage.setItem("userBio", finalBio);
+    setUser({ email: finalEmail, displayName: finalDisplayName, bio: finalBio });
   };
 
   const signup = async (data) => {
@@ -41,7 +44,7 @@ export const AuthProvider = ({ children }) => {
     // Clear previous user's cached workspaces before signing up
     localStorage.removeItem("notion_workspaces");
     const res = await signupRequest({ ...data, email });
-    const { access_token: token, email: backendEmail, display_name: backendDisplayName } = res.data?.data?.session || {};
+    const { access_token: token, email: backendEmail, display_name: backendDisplayName, bio: backendBio } = res.data?.data?.session || {};
 
     if (!token) {
       throw new Error(
@@ -51,22 +54,35 @@ export const AuthProvider = ({ children }) => {
 
     const finalEmail = backendEmail || email;
     const finalDisplayName = backendDisplayName || data?.full_name?.trim() || finalEmail.split("@")[0];
+    const finalBio = backendBio || "";
 
     localStorage.setItem("token", token);
     localStorage.setItem("userEmail", finalEmail);
     localStorage.setItem("userDisplayName", finalDisplayName);
-    setUser({ email: finalEmail, displayName: finalDisplayName });
+    localStorage.setItem("userBio", finalBio);
+    setUser({ email: finalEmail, displayName: finalDisplayName, bio: finalBio });
   };
 
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("userEmail");
+    localStorage.removeItem("userDisplayName");
+    localStorage.removeItem("userBio");
     localStorage.removeItem("notion_workspaces");
     setUser(null);
   };
 
+  const updateProfile = async (data) => {
+    const res = await updateProfileRequest(data);
+    const updatedUser = res.data;
+    localStorage.setItem("userDisplayName", updatedUser.display_name);
+    localStorage.setItem("userBio", updatedUser.bio || "");
+    setUser((prev) => ({ ...prev, displayName: updatedUser.display_name, bio: updatedUser.bio }));
+    return updatedUser;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

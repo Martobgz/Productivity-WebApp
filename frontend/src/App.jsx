@@ -17,6 +17,7 @@ import SearchPage from "./pages/SearchPage";
 import CalendarPage from "./pages/CalendarPage";
 import InboxPage from "./pages/InboxPage";
 import SettingsPage from "./pages/SettingsPage";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ function App() {
                   <Route path="calendar" element={<CalendarPage />} />
                   <Route path="inbox" element={<InboxPage />} />
                   <Route path="settings" element={<SettingsPage />} />
+                  <Route path="profile" element={<Profile />} />
                 </Route>
 
                 <Route path="*" element={<NotFound />} />
