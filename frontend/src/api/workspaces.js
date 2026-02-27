@@ -18,3 +18,4 @@ export const getWorkspaces = () => API.get("/");
 export const createWorkspace = (data) => API.post("/", data);
 export const updateWorkspace = (id, data) => API.patch(`/${id}`, data);
 export const deleteWorkspace = (id) => API.delete(`/${id}`);
+export const inviteUser = (id, email) => API.post(`/${id}/invite`, { email });

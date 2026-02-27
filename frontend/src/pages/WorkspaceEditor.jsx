@@ -4,6 +4,75 @@ import { useWorkspaces } from "../context/WorkspacesContext";
 import {
     Plus, CheckSquare, FileText, Share2, Trash2, X, Table, Image
 } from "lucide-react";
+import { inviteUser } from "../api/workspaces";
+
+const ShareDialog = ({ ws, onClose }) => {
+    const [email, setEmail] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [status, setStatus] = useState(null); // { type: 'success' | 'error', message: string }
+
+    const handleSendInvite = async () => {
+        if (!email) return;
+        setLoading(true);
+        setStatus(null);
+        try {
+            await inviteUser(ws.id, email);
+            setStatus({ type: "success", message: `Invite sent to ${email}!` });
+            setEmail("");
+        } catch (err) {
+            setStatus({ type: "error", message: err.response?.data?.detail || "Failed to send invite." });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={onClose}>
+            <div className="card-gradient p-8 w-full max-w-sm animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-foreground">Share Workspace</h3>
+                    <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={18} /></button>
+                </div>
+
+                {status && (
+                    <div className={`mb-4 p-3 rounded text-xs ${status.type === 'success' ? 'bg-success/10 text-success border border-success/20' : 'bg-destructive/10 text-destructive border border-destructive/20'}`}>
+                        {status.message}
+                    </div>
+                )}
+
+                <p className="text-sm text-muted-foreground mb-4">Invite collaborators by email:</p>
+                <input
+                    type="email"
+                    placeholder="colleague@example.com"
+                    className="input-dark mb-4"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                />
+                <button
+                    className="btn-primary w-full"
+                    onClick={handleSendInvite}
+                    disabled={loading || !email}
+                >
+                    {loading ? "Sending..." : "Send Invite"}
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const FlyoutItem = ({ icon: Icon, label, onClick, destructive }) => (
+    <button
+        onClick={onClick}
+        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${destructive
+            ? "text-destructive hover:bg-destructive/10"
+            : "text-muted-foreground hover:bg-accent hover:text-foreground"
+            }`}
+    >
+        <Icon size={16} />
+        <span>{label}</span>
+    </button>
+);
 
 const WorkspaceEditor = () => {
     const { id } = useParams();
@@ -118,8 +187,8 @@ const WorkspaceEditor = () => {
                                 <button
                                     onClick={() => updateTodo(todo.id, { done: !todo.done })}
                                     className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${todo.done
-                                            ? "bg-primary border-primary text-primary-foreground"
-                                            : "border-border hover:border-primary/50"
+                                        ? "bg-primary border-primary text-primary-foreground"
+                                        : "border-border hover:border-primary/50"
                                         }`}
                                 >
                                     {todo.done && <CheckSquare size={12} />}
@@ -157,36 +226,10 @@ const WorkspaceEditor = () => {
 
             {/* Share dialog */}
             {showShareDialog && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-                    onClick={() => setShowShareDialog(false)}>
-                    <div className="card-gradient p-8 w-full max-w-sm animate-fade-in" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold text-foreground">Share Workspace</h3>
-                            <button onClick={() => setShowShareDialog(false)} className="text-muted-foreground hover:text-foreground"><X size={18} /></button>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-4">Invite collaborators by email:</p>
-                        <input type="email" placeholder="colleague@example.com" className="input-dark mb-4" />
-                        <button className="btn-primary">Send Invite</button>
-                        <p className="text-xs text-muted-foreground mt-3 text-center">This is a mock feature for demonstration.</p>
-                    </div>
-                </div>
+                <ShareDialog ws={ws} onClose={() => setShowShareDialog(false)} />
             )}
         </div>
     );
 };
-
-// eslint-disable-next-line no-unused-vars
-const FlyoutItem = ({ icon: Icon, label, onClick, destructive }) => (
-    <button
-        onClick={onClick}
-        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${destructive
-                ? "text-destructive hover:bg-destructive/10"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground"
-            }`}
-    >
-        <Icon size={16} />
-        <span>{label}</span>
-    </button>
-);
 
 export default WorkspaceEditor;

@@ -10,6 +10,14 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+class UserResponse(BaseModel):
+    id: int
+    email: EmailStr
+    display_name: str | None = None
+
+    class Config:
+        from_attributes = True
+
 class WorkspaceBase(BaseModel):
     id: str
     name: str
