@@ -12,7 +12,7 @@ const mockEvents = [
 
 const HomePage = () => {
     const { user } = useAuth();
-    const { create } = useWorkspaces();
+    const { workspaces: activeWorkspaces, create } = useWorkspaces();
     const navigate = useNavigate();
     const [showModal, setShowModal] = useState(false);
 
@@ -64,6 +64,50 @@ const HomePage = () => {
             >
                 <Plus size={18} /> Create Workspace
             </button>
+
+            {/* Workspaces Grid */}
+            <div className="mt-16 w-full max-w-4xl">
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-bold text-foreground">Your Workspaces</h2>
+                    <span className="text-xs text-muted-foreground">{activeWorkspaces.length} workspaces</span>
+                </div>
+
+                {activeWorkspaces.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {activeWorkspaces.map((ws) => {
+                            const Icon = ws.type === "shared" ? Users : Lock;
+                            return (
+                                <button
+                                    key={ws.id}
+                                    onClick={() => navigate(`/dashboard/workspace/${ws.id}`)}
+                                    className="flex flex-col gap-4 p-5 rounded-xl border border-border bg-surface-700/30 hover:bg-surface-600/30 hover:border-primary/30 transition-all text-left group"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                                            <Icon size={18} />
+                                        </div>
+                                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                            {ws.type}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                                            {ws.name || "Untitled Workspace"}
+                                        </h3>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Created {new Date(ws.createdAt).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-12 rounded-xl border border-dashed border-border text-muted-foreground">
+                        <p className="text-sm">No workspaces yet. Create one to get started!</p>
+                    </div>
+                )}
+            </div>
 
             {/* Modal */}
             {showModal && (

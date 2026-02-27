@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
+import { useWorkspaces } from "../context/WorkspacesContext";
 import {
-    User, Search, Home, Calendar, Inbox, Settings, Trash2, LogOut, ChevronLeft, ChevronRight
+    User, Search, Home, Calendar, Inbox, Settings, Trash2, LogOut, ChevronLeft, ChevronRight,
+    FileText, Users
 } from "lucide-react";
 import LogoMark from "./LogoMark";
 
@@ -18,6 +20,7 @@ const navItems = [
 const AppSidebar = () => {
     const [collapsed, setCollapsed] = useState(false);
     const { user, logout } = useAuth();
+    const { workspaces } = useWorkspaces();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -49,30 +52,58 @@ const AppSidebar = () => {
                 </div>
                 {!collapsed && (
                     <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{user?.fullName || "User"}</p>
+                        <p className="text-sm font-medium text-foreground truncate">{user?.fullName || user?.full_name || "User"}</p>
                         <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                     </div>
                 )}
             </div>
 
             {/* Nav */}
-            <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-                {navItems.map((item) => {
-                    const active = location.pathname === item.path;
-                    return (
-                        <button
-                            key={item.path}
-                            onClick={() => navigate(item.path)}
-                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${active
+            <nav className="flex-1 p-2 space-y-6 overflow-y-auto">
+                <div className="space-y-1">
+                    {navItems.map((item) => {
+                        const active = location.pathname === item.path;
+                        return (
+                            <button
+                                key={item.path}
+                                onClick={() => navigate(item.path)}
+                                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${active
                                     ? "bg-primary/15 text-primary font-medium"
                                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                                } ${collapsed ? "justify-center" : ""}`}
-                        >
-                            <item.icon size={18} />
-                            {!collapsed && <span>{item.label}</span>}
-                        </button>
-                    );
-                })}
+                                    } ${collapsed ? "justify-center" : ""}`}
+                            >
+                                <item.icon size={18} />
+                                {!collapsed && <span>{item.label}</span>}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Workspaces Section */}
+                <div className="space-y-1">
+                    {!collapsed && (
+                        <p className="px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                            Workspaces
+                        </p>
+                    )}
+                    {workspaces.map((ws) => {
+                        const active = location.pathname === `/dashboard/workspace/${ws.id}`;
+                        const Icon = ws.type === "shared" ? Users : FileText;
+                        return (
+                            <button
+                                key={ws.id}
+                                onClick={() => navigate(`/dashboard/workspace/${ws.id}`)}
+                                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${active
+                                    ? "bg-primary/15 text-primary font-medium"
+                                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                                    } ${collapsed ? "justify-center" : ""}`}
+                            >
+                                <Icon size={18} />
+                                {!collapsed && <span className="truncate">{ws.name || "Untitled"}</span>}
+                            </button>
+                        );
+                    })}
+                </div>
             </nav>
 
             {/* Logout */}
