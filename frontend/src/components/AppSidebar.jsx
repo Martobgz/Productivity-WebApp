@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { useWorkspaces } from "../context/WorkspacesContext";
+import { getInvitations } from "../api/workspaces";
 import {
     User, Search, Home, Calendar, Inbox, Settings, Trash2, LogOut, ChevronLeft, ChevronRight,
     FileText, Users
@@ -19,10 +20,24 @@ const navItems = [
 
 const AppSidebar = () => {
     const [collapsed, setCollapsed] = useState(false);
+    const [inviteCount, setInviteCount] = useState(0);
     const { user, logout } = useAuth();
     const { workspaces } = useWorkspaces();
     const navigate = useNavigate();
     const location = useLocation();
+
+    // Poll for invitation count
+    useEffect(() => {
+        const fetchCount = async () => {
+            try {
+                const { data } = await getInvitations();
+                setInviteCount(data.length);
+            } catch { /* ignore */ }
+        };
+        fetchCount();
+        const interval = setInterval(fetchCount, 15000);
+        return () => clearInterval(interval);
+    }, []);
 
     return (
         <aside
@@ -52,7 +67,7 @@ const AppSidebar = () => {
                 </div>
                 {!collapsed && (
                     <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{user?.fullName || user?.full_name || "User"}</p>
+                        <p className="text-sm font-medium text-foreground truncate">{user?.displayName || "User"}</p>
                         <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                     </div>
                 )}
@@ -63,6 +78,7 @@ const AppSidebar = () => {
                 <div className="space-y-1">
                     {navItems.map((item) => {
                         const active = location.pathname === item.path;
+                        const showBadge = item.label === "Inbox" && inviteCount > 0;
                         return (
                             <button
                                 key={item.path}
@@ -72,8 +88,22 @@ const AppSidebar = () => {
                                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                                     } ${collapsed ? "justify-center" : ""}`}
                             >
-                                <item.icon size={18} />
-                                {!collapsed && <span>{item.label}</span>}
+                                <div className="relative">
+                                    <item.icon size={18} />
+                                    {showBadge && collapsed && (
+                                        <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-destructive text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                                            {inviteCount}
+                                        </span>
+                                    )}
+                                </div>
+                                {!collapsed && (
+                                    <span className="flex-1 text-left">{item.label}</span>
+                                )}
+                                {!collapsed && showBadge && (
+                                    <span className="bg-destructive text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                                        {inviteCount}
+                                    </span>
+                                )}
                             </button>
                         );
                     })}

@@ -39,8 +39,10 @@ class WorkspaceMember(Base):
     workspace_id = Column(String, ForeignKey("workspaces.id"))
     user_id = Column(Integer, ForeignKey("users.id"))
     role = Column(String, default="member")  # owner / member
+    status = Column(String, default="accepted")  # pending / accepted / declined
 
     workspace = relationship("Workspace", back_populates="members")
+    user = relationship("User")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)

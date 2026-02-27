@@ -1,4 +1,4 @@
-import { createContext, useState } from "react";
+import { createContext, useState, useEffect } from "react";
 import { login as loginRequest, signup as signupRequest } from "../api/auth";
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -9,8 +9,10 @@ export const AuthProvider = ({ children }) => {
     // Rehydrate user state from localStorage on page refresh
     const token = localStorage.getItem("token");
     const email = localStorage.getItem("userEmail");
-    return token && email ? { email } : null;
+    const displayName = localStorage.getItem("userDisplayName");
+    return token && email ? { email, displayName } : null;
   });
+
 
   const normalizeEmail = (email) => (email ?? "").trim().toLowerCase();
 
@@ -19,19 +21,19 @@ export const AuthProvider = ({ children }) => {
     // Clear previous user's cached workspaces before logging in
     localStorage.removeItem("notion_workspaces");
     const res = await loginRequest({ ...data, email });
-    const token = res.data?.data?.session?.access_token;
+    const { access_token: token, email: backendEmail, display_name: backendDisplayName } = res.data?.data?.session || {};
 
     if (!token) {
       throw new Error("No access token returned. Please check your credentials.");
     }
 
-    // Derive a simple display name from the email (before we persist full names)
-    const displayName = email ? email.split("@")[0] : "";
+    const finalEmail = backendEmail || email;
+    const finalDisplayName = backendDisplayName || finalEmail.split("@")[0];
 
     localStorage.setItem("token", token);
-    localStorage.setItem("userEmail", email);
-    localStorage.setItem("userDisplayName", displayName);
-    setUser({ email, displayName });
+    localStorage.setItem("userEmail", finalEmail);
+    localStorage.setItem("userDisplayName", finalDisplayName);
+    setUser({ email: finalEmail, displayName: finalDisplayName });
   };
 
   const signup = async (data) => {
@@ -39,7 +41,7 @@ export const AuthProvider = ({ children }) => {
     // Clear previous user's cached workspaces before signing up
     localStorage.removeItem("notion_workspaces");
     const res = await signupRequest({ ...data, email });
-    const token = res.data?.data?.session?.access_token;
+    const { access_token: token, email: backendEmail, display_name: backendDisplayName } = res.data?.data?.session || {};
 
     if (!token) {
       throw new Error(
@@ -47,14 +49,13 @@ export const AuthProvider = ({ children }) => {
       );
     }
 
-    const displayName =
-      data?.full_name?.trim() ||
-      (email ? email.split("@")[0] : "");
+    const finalEmail = backendEmail || email;
+    const finalDisplayName = backendDisplayName || data?.full_name?.trim() || finalEmail.split("@")[0];
 
     localStorage.setItem("token", token);
-    localStorage.setItem("userEmail", email);
-    localStorage.setItem("userDisplayName", displayName);
-    setUser({ email, displayName });
+    localStorage.setItem("userEmail", finalEmail);
+    localStorage.setItem("userDisplayName", finalDisplayName);
+    setUser({ email: finalEmail, displayName: finalDisplayName });
   };
 
   const logout = () => {

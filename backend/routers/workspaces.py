@@ -1,26 +1,32 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from sqlalchemy import or_, exists
 
 from models import Workspace, User, WorkspaceMember
 from schemas import WorkspaceCreate, WorkspaceUpdate, WorkspaceResponse, InviteUser, UserResponse
 from deps import get_db, get_current_user
-from sqlalchemy import or_
 
 router = APIRouter(prefix="/api/workspaces", tags=["workspaces"])
 
 @router.get("/", response_model=List[WorkspaceResponse])
 def get_workspaces(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # Get workspaces where the user is an owner OR a member (not deleted)
-    workspaces = db.query(Workspace).join(
-        WorkspaceMember, Workspace.id == WorkspaceMember.workspace_id, isouter=True
-    ).filter(
+    # Correct, robust query using EXISTS for membership check
+    # This prevents the JOIN-multiplying issue and is much more stable
+    has_membership = exists().where(
+        (WorkspaceMember.workspace_id == Workspace.id) &
+        (WorkspaceMember.user_id == current_user.id) &
+        (WorkspaceMember.status == "accepted")
+    )
+    
+    workspaces = db.query(Workspace).filter(
         or_(
             Workspace.user_id == current_user.id,
-            WorkspaceMember.user_id == current_user.id
+            has_membership
         ),
         Workspace.deleted == False
-    ).distinct().all()
+    ).all()
+    
     return workspaces
 
 @router.post("/", response_model=WorkspaceResponse)
@@ -42,7 +48,7 @@ def create_workspace(workspace: WorkspaceCreate, db: Session = Depends(get_db), 
     db.add(new_ws)
     
     # Also add as owner in workspace_members
-    owner_member = WorkspaceMember(workspace_id=new_ws.id, user_id=current_user.id, role="owner")
+    owner_member = WorkspaceMember(workspace_id=new_ws.id, user_id=current_user.id, role="owner", status="accepted")
     db.add(owner_member)
     
     db.commit()
@@ -57,9 +63,10 @@ def invite_user(id: str, invite: InviteUser, db: Session = Depends(get_db), curr
         raise HTTPException(status_code=404, detail="Workspace not found or unauthorized")
     
     # Find user to invite
-    user_to_invite = db.query(User).filter(User.email == invite.email).first()
+    target_email = invite.email.strip().lower()
+    user_to_invite = db.query(User).filter(User.email == target_email).first()
     if not user_to_invite:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=f"User with email '{target_email}' not found")
     
     # Check if already a member
     existing_member = db.query(WorkspaceMember).filter(
@@ -70,12 +77,59 @@ def invite_user(id: str, invite: InviteUser, db: Session = Depends(get_db), curr
     if existing_member:
         return user_to_invite
         
-    # Add as member
-    new_member = WorkspaceMember(workspace_id=id, user_id=user_to_invite.id, role="member")
+    # Add as pending member
+    new_member = WorkspaceMember(workspace_id=id, user_id=user_to_invite.id, role="member", status="pending")
     db.add(new_member)
     db.commit()
     
     return user_to_invite
+
+@router.get("/invitations", response_model=list)
+def get_invitations(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Get all pending invitations for the current user."""
+    invites = db.query(WorkspaceMember).filter(
+        WorkspaceMember.user_id == current_user.id,
+        WorkspaceMember.status == "pending"
+    ).all()
+    result = []
+    for inv in invites:
+        ws = db.query(Workspace).filter(Workspace.id == inv.workspace_id).first()
+        owner = db.query(User).filter(User.id == ws.user_id).first() if ws else None
+        result.append({
+            "id": inv.id,
+            "workspace_id": inv.workspace_id,
+            "workspace_name": ws.name if ws else "Unknown",
+            "invited_by": owner.email if owner else "Unknown",
+            "created_at": inv.created_at.isoformat() if inv.created_at else None,
+            "status": inv.status,
+        })
+    return result
+
+@router.post("/invitations/{invite_id}/accept")
+def accept_invitation(invite_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    inv = db.query(WorkspaceMember).filter(
+        WorkspaceMember.id == invite_id,
+        WorkspaceMember.user_id == current_user.id,
+        WorkspaceMember.status == "pending"
+    ).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    inv.status = "accepted"
+    db.commit()
+    return {"detail": "Invitation accepted"}
+
+@router.post("/invitations/{invite_id}/decline")
+def decline_invitation(invite_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    inv = db.query(WorkspaceMember).filter(
+        WorkspaceMember.id == invite_id,
+        WorkspaceMember.user_id == current_user.id,
+        WorkspaceMember.status == "pending"
+    ).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    inv.status = "declined"
+    db.commit()
+    return {"detail": "Invitation declined"}
 
 @router.patch("/{id}", response_model=WorkspaceResponse)
 def update_workspace(id: str, workspace: WorkspaceUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

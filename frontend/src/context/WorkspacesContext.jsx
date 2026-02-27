@@ -30,12 +30,6 @@ export const WorkspacesProvider = ({ children }) => {
         };
         fetchWorkspaces();
 
-        // Re-fetch when another tab logs in/out
-        const onStorage = (e) => {
-            if (e.key === "token") fetchWorkspaces();
-        };
-        window.addEventListener("storage", onStorage);
-        return () => window.removeEventListener("storage", onStorage);
     }, []);
 
     // Manual refresh from API (used for polling)

@@ -13,11 +13,12 @@ const ShareDialog = ({ ws, onClose }) => {
 
     const handleSendInvite = async () => {
         if (!email) return;
+        const normalizedEmail = email.trim().toLowerCase();
         setLoading(true);
         setStatus(null);
         try {
-            await inviteUser(ws.id, email);
-            setStatus({ type: "success", message: `Invite sent to ${email}!` });
+            await inviteUser(ws.id, normalizedEmail);
+            setStatus({ type: "success", message: `Invite sent to ${normalizedEmail}!` });
             setEmail("");
         } catch (err) {
             setStatus({ type: "error", message: err.response?.data?.detail || "Failed to send invite." });

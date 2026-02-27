@@ -15,14 +15,15 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
         print(f"DEBUG: Password length: {len(user.password)}")
         print(f"DEBUG: Password content start: {user.password[:3]}...")
         
-        existing_user = db.query(User).filter(User.email == user.email).first()
+        normalized_email = user.email.strip().lower()
+        existing_user = db.query(User).filter(User.email == normalized_email).first()
         if existing_user:
             raise HTTPException(status_code=400, detail="Email already registered")
 
         new_user = User(
-            email=user.email,
+            email=normalized_email,
             hashed_password=hash_password(user.password),
-            display_name=user.full_name or user.email.split("@")[0]
+            display_name=user.full_name or normalized_email.split("@")[0]
         )
         db.add(new_user)
         db.commit()
@@ -33,7 +34,9 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
         return {
             "data": {
                 "session": {
-                    "access_token": token
+                    "access_token": token,
+                    "email": new_user.email,
+                    "display_name": new_user.display_name
                 }
             }
         }
@@ -45,7 +48,8 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.email == user.email).first()
+    normalized_email = user.email.strip().lower()
+    db_user = db.query(User).filter(User.email == normalized_email).first()
 
     if not db_user:
         raise HTTPException(status_code=400, detail="Invalid credentials")
@@ -58,7 +62,9 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     return {
         "data": {
             "session": {
-                "access_token": token
+                "access_token": token,
+                "email": db_user.email,
+                "display_name": db_user.display_name
             }
         }
     }

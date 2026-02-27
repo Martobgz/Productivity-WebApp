@@ -19,3 +19,8 @@ export const createWorkspace = (data) => API.post("/", data);
 export const updateWorkspace = (id, data) => API.patch(`/${id}`, data);
 export const deleteWorkspace = (id) => API.delete(`/${id}`);
 export const inviteUser = (id, email) => API.post(`/${id}/invite`, { email });
+
+// Invitations
+export const getInvitations = () => API.get("/invitations");
+export const acceptInvitation = (id) => API.post(`/invitations/${id}/accept`);
+export const declineInvitation = (id) => API.post(`/invitations/${id}/decline`);
