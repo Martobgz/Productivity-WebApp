@@ -39,6 +39,7 @@ class WorkspaceUpdate(BaseModel):
 
 class WorkspaceResponse(WorkspaceBase):
     user_id: int
+    role: str | None = "owner"
 
     class Config:
         from_attributes = True

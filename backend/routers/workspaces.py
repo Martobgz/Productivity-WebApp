@@ -11,22 +11,25 @@ router = APIRouter(prefix="/api/workspaces", tags=["workspaces"])
 
 @router.get("/", response_model=List[WorkspaceResponse])
 def get_workspaces(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # Correct, robust query using EXISTS for membership check
-    # This prevents the JOIN-multiplying issue and is much more stable
-    has_membership = exists().where(
-        (WorkspaceMember.workspace_id == Workspace.id) &
-        (WorkspaceMember.user_id == current_user.id) &
-        (WorkspaceMember.status == "accepted")
-    )
+    # Get all memberships for the current user (accepted ones)
+    memberships = db.query(WorkspaceMember).filter(
+        WorkspaceMember.user_id == current_user.id,
+        WorkspaceMember.status == "accepted"
+    ).all()
     
+    workspace_ids = [m.workspace_id for m in memberships]
+    role_map = {m.workspace_id: m.role for m in memberships}
+    
+    # Query workspaces based on these IDs
     workspaces = db.query(Workspace).filter(
-        or_(
-            Workspace.user_id == current_user.id,
-            has_membership
-        ),
+        Workspace.id.in_(workspace_ids),
         Workspace.deleted == False
     ).all()
     
+    # Attach role to each workspace object for the response
+    for ws in workspaces:
+        ws.role = role_map.get(ws.id, "participant")
+        
     return workspaces
 
 @router.post("/", response_model=WorkspaceResponse)
@@ -53,14 +56,20 @@ def create_workspace(workspace: WorkspaceCreate, db: Session = Depends(get_db), 
     
     db.commit()
     db.refresh(new_ws)
+    new_ws.role = "owner"
     return new_ws
 
 @router.post("/{id}/invite", response_model=UserResponse)
 def invite_user(id: str, invite: InviteUser, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # Verify workspace ownership
-    ws = db.query(Workspace).filter(Workspace.id == id, Workspace.user_id == current_user.id).first()
-    if not ws:
-        raise HTTPException(status_code=404, detail="Workspace not found or unauthorized")
+    # Verify current user is an OWNER of this workspace
+    membership = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == id,
+        WorkspaceMember.user_id == current_user.id,
+        WorkspaceMember.role == "owner"
+    ).first()
+    
+    if not membership:
+        raise HTTPException(status_code=403, detail="Only owners can invite collaborators")
     
     # Find user to invite
     target_email = invite.email.strip().lower()
@@ -77,8 +86,8 @@ def invite_user(id: str, invite: InviteUser, db: Session = Depends(get_db), curr
     if existing_member:
         return user_to_invite
         
-    # Add as pending member
-    new_member = WorkspaceMember(workspace_id=id, user_id=user_to_invite.id, role="member", status="pending")
+    # Add as pending member (default role is 'participant' or 'member', user requested participant)
+    new_member = WorkspaceMember(workspace_id=id, user_id=user_to_invite.id, role="participant", status="pending")
     db.add(new_member)
     db.commit()
     
@@ -102,6 +111,7 @@ def get_invitations(db: Session = Depends(get_db), current_user: User = Depends(
             "invited_by": owner.email if owner else "Unknown",
             "created_at": inv.created_at.isoformat() if inv.created_at else None,
             "status": inv.status,
+            "role": inv.role
         })
     return result
 
@@ -133,20 +143,19 @@ def decline_invitation(invite_id: int, db: Session = Depends(get_db), current_us
 
 @router.patch("/{id}", response_model=WorkspaceResponse)
 def update_workspace(id: str, workspace: WorkspaceUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # Allow both owner and members to update
+    # Any member (owner or participant) can update content
+    membership = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == id,
+        WorkspaceMember.user_id == current_user.id,
+        WorkspaceMember.status == "accepted"
+    ).first()
+    
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not authorized to edit this workspace")
+    
     db_ws = db.query(Workspace).filter(Workspace.id == id).first()
     if not db_ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    
-    # Check if user is owner or member
-    is_owner = db_ws.user_id == current_user.id
-    is_member = db.query(WorkspaceMember).filter(
-        WorkspaceMember.workspace_id == id,
-        WorkspaceMember.user_id == current_user.id
-    ).first() is not None
-    
-    if not is_owner and not is_member:
-        raise HTTPException(status_code=403, detail="Not authorized to edit this workspace")
     
     update_data = workspace.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -154,11 +163,22 @@ def update_workspace(id: str, workspace: WorkspaceUpdate, db: Session = Depends(
         
     db.commit()
     db.refresh(db_ws)
+    db_ws.role = membership.role
     return db_ws
 
 @router.delete("/{id}")
 def delete_workspace(id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    db_ws = db.query(Workspace).filter(Workspace.id == id, Workspace.user_id == current_user.id).first()
+    # Only OWNERS can delete
+    membership = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == id,
+        WorkspaceMember.user_id == current_user.id,
+        WorkspaceMember.role == "owner"
+    ).first()
+    
+    if not membership:
+        raise HTTPException(status_code=403, detail="Only owners can delete workspaces")
+        
+    db_ws = db.query(Workspace).filter(Workspace.id == id).first()
     if not db_ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
     

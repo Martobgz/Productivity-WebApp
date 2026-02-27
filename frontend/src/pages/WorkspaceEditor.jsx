@@ -177,9 +177,13 @@ const WorkspaceEditor = () => {
                         <FlyoutItem icon={FileText} label="Add Note" onClick={() => { contentRef.current?.focus(); setShowFlyout(false); }} />
                         <FlyoutItem icon={Table} label="Insert Table" onClick={insertMockTable} />
                         <FlyoutItem icon={Image} label="Insert Image" onClick={insertPlaceholderImage} />
-                        <FlyoutItem icon={Share2} label="Share Workspace" onClick={() => { setShowShareDialog(true); setShowFlyout(false); }} />
-                        <div className="border-t border-border my-1" />
-                        <FlyoutItem icon={Trash2} label="Trash Workspace" onClick={handleTrash} destructive />
+                        {ws.role === "owner" && (
+                            <>
+                                <FlyoutItem icon={Share2} label="Share Workspace" onClick={() => { setShowShareDialog(true); setShowFlyout(false); }} />
+                                <div className="border-t border-border my-1" />
+                                <FlyoutItem icon={Trash2} label="Trash Workspace" onClick={handleTrash} destructive />
+                            </>
+                        )}
                     </div>
                 )}
             </div>
@@ -195,7 +199,7 @@ const WorkspaceEditor = () => {
                     placeholder="Untitled"
                 />
                 <p className="text-xs text-muted-foreground mb-8">
-                    {ws.type === "shared" ? "🌐 Shared workspace" : "🔒 Private workspace"} · Created {new Date(ws.createdAt).toLocaleDateString()}
+                    {ws.type === "shared" ? "🌐 Shared workspace" : "🔒 Private workspace"} · {ws.role === "owner" ? "🛡️ Owner" : "👤 Participant"} · Created {new Date(ws.createdAt).toLocaleDateString()}
                 </p>
 
                 {/* Todos */}
