@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from database import engine
 import models
-from routers import auth, workspaces
+from routers import auth, workspaces, calendar_events
 from middleware.cors import setup_cors
 
 models.Base.metadata.create_all(bind=engine)
@@ -12,3 +12,4 @@ setup_cors(app)
 
 app.include_router(auth.router)
 app.include_router(workspaces.router)
+app.include_router(calendar_events.router)

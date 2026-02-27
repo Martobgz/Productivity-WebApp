@@ -53,3 +53,18 @@ class UserSettings(Base):
     language = Column(String, default="bg", nullable=False)
     notifications_enabled = Column(Boolean, default=True, nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class CalendarEvent(Base):
+    __tablename__ = "calendar_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    start_time = Column(DateTime(timezone=True), nullable=False)
+    end_time = Column(DateTime(timezone=True), nullable=False)
+    all_day = Column(Boolean, default=False)
+    color = Column(String, nullable=True)  # e.g., hex or tailwind class
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    owner = relationship("User")

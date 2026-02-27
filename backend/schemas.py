@@ -45,3 +45,30 @@ class WorkspaceResponse(WorkspaceBase):
 
 class InviteUser(BaseModel):
     email: str
+
+class EventBase(BaseModel):
+    title: str
+    description: str | None = None
+    start_time: str # ISO string
+    end_time: str   # ISO string
+    all_day: bool | None = False
+    color: str | None = None
+
+class EventCreate(EventBase):
+    pass
+
+class EventUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    start_time: str | None = None
+    end_time: str | None = None
+    all_day: bool | None = None
+    color: str | None = None
+
+class EventResponse(EventBase):
+    id: int
+    user_id: int
+    created_at: str
+
+    class Config:
+        from_attributes = True
