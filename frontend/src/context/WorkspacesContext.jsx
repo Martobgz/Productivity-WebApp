@@ -5,32 +5,49 @@ const WorkspacesContext = createContext(null);
 
 const STORAGE_KEY = "notion_workspaces";
 
-const load = () => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
-    catch { return []; }
-};
-
 import { getWorkspaces, createWorkspace, updateWorkspace, deleteWorkspace } from "../api/workspaces";
 
 export const WorkspacesProvider = ({ children }) => {
-    const [allWorkspaces, setAllWorkspaces] = useState(load);
+    const [allWorkspaces, setAllWorkspaces] = useState([]);
 
-    // Sync from API on mount
+    // Sync from API on mount and whenever the token changes
     useEffect(() => {
         const fetchWorkspaces = async () => {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                // No user logged in — clear everything
+                setAllWorkspaces([]);
+                localStorage.removeItem(STORAGE_KEY);
+                return;
+            }
             try {
-                if (localStorage.getItem("token")) {
-                    const { data } = await getWorkspaces();
-                    setAllWorkspaces(data);
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-                }
+                const { data } = await getWorkspaces();
+                setAllWorkspaces(data);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             } catch (err) {
                 console.error("Failed to fetch workspaces from API", err);
             }
         };
         fetchWorkspaces();
-        window.addEventListener("storage", fetchWorkspaces);
-        return () => window.removeEventListener("storage", fetchWorkspaces);
+
+        // Re-fetch when another tab logs in/out
+        const onStorage = (e) => {
+            if (e.key === "token") fetchWorkspaces();
+        };
+        window.addEventListener("storage", onStorage);
+        return () => window.removeEventListener("storage", onStorage);
+    }, []);
+
+    // Manual refresh from API (used for polling)
+    const refresh = useCallback(async () => {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        try {
+            const { data } = await getWorkspaces();
+            setAllWorkspaces(data);
+        } catch (err) {
+            console.error("Failed to refresh workspaces", err);
+        }
     }, []);
 
     // Sync local changes to localStorage
@@ -79,7 +96,7 @@ export const WorkspacesProvider = ({ children }) => {
     const trashed = allWorkspaces.filter((w) => w.deleted);
 
     return (
-        <WorkspacesContext.Provider value={{ workspaces: active, trashed, create, update, trash, restore, permanentDelete }}>
+        <WorkspacesContext.Provider value={{ workspaces: active, trashed, create, update, trash, restore, permanentDelete, refresh }}>
             {children}
         </WorkspacesContext.Provider>
     );

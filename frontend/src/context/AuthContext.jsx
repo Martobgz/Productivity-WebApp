@@ -16,6 +16,8 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (data) => {
     const email = normalizeEmail(data?.email);
+    // Clear previous user's cached workspaces before logging in
+    localStorage.removeItem("notion_workspaces");
     const res = await loginRequest({ ...data, email });
     const token = res.data?.data?.session?.access_token;
 
@@ -34,6 +36,8 @@ export const AuthProvider = ({ children }) => {
 
   const signup = async (data) => {
     const email = normalizeEmail(data?.email);
+    // Clear previous user's cached workspaces before signing up
+    localStorage.removeItem("notion_workspaces");
     const res = await signupRequest({ ...data, email });
     const token = res.data?.data?.session?.access_token;
 
@@ -56,6 +60,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("userEmail");
+    localStorage.removeItem("notion_workspaces");
     setUser(null);
   };
 

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useWorkspaces } from "../context/WorkspacesContext";
 import {
@@ -77,11 +77,29 @@ const FlyoutItem = ({ icon: Icon, label, onClick, destructive }) => (
 const WorkspaceEditor = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { workspaces, update, trash } = useWorkspaces();
+    const { workspaces, update, trash, refresh } = useWorkspaces();
     const ws = workspaces.find((w) => w.id === id);
     const [showFlyout, setShowFlyout] = useState(false);
     const [showShareDialog, setShowShareDialog] = useState(false);
     const contentRef = useRef(null);
+
+    // Poll for updates on shared workspaces every 5 seconds
+    useEffect(() => {
+        if (!ws || ws.type !== "shared") return;
+        const interval = setInterval(() => {
+            refresh();
+        }, 5000);
+        return () => clearInterval(interval);
+    }, [ws?.type, refresh]);
+
+    // Sync content from backend when it changes remotely
+    useEffect(() => {
+        if (!ws || !contentRef.current) return;
+        // Only update if the editor doesn't have focus (avoid overwriting while typing)
+        if (document.activeElement !== contentRef.current && contentRef.current.innerHTML !== ws.content) {
+            contentRef.current.innerHTML = ws.content || "";
+        }
+    }, [ws?.content]);
 
     if (!ws) {
         return (
