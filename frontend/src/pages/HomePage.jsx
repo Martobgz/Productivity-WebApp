@@ -1,30 +1,63 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { useWorkspaces } from "../context/WorkspacesContext";
-import { Plus, Calendar, Lock, Users, X } from "lucide-react";
-
-const mockEvents = [
-    { id: 1, title: "Team standup", date: "Today, 10:00 AM", color: "bg-primary/20 text-primary" },
-    { id: 2, title: "Design review", date: "Today, 2:00 PM", color: "bg-brand-400/20 text-brand-400" },
-    { id: 3, title: "Sprint planning", date: "Tomorrow, 9:00 AM", color: "bg-emerald-500/20 text-emerald-400" },
-];
+import { getEvents } from "../api/calendar";
+import { Plus, Calendar, Lock, Users, X, Loader2, ChevronRight } from "lucide-react";
 
 const HomePage = () => {
     const { user } = useAuth();
     const { workspaces: activeWorkspaces, create } = useWorkspaces();
     const navigate = useNavigate();
     const [showModal, setShowModal] = useState(false);
+    const [events, setEvents] = useState([]);
+    const [loadingEvents, setLoadingEvents] = useState(true);
 
     const rawName = user?.displayName || user?.email?.split("@")[0] || "";
     const firstName = rawName
         ? rawName.charAt(0).toUpperCase() + rawName.slice(1)
         : "there";
 
+    useEffect(() => {
+        const fetchEvents = async () => {
+            try {
+                const { data } = await getEvents();
+                // Sort by start time and take top 5
+                const sorted = data
+                    .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
+                    // Filter out past events if desired, but for now just show upcoming
+                    .filter(ev => new Date(ev.start_time) >= new Date(new Date().setHours(0, 0, 0, 0)))
+                    .slice(0, 5);
+                setEvents(sorted);
+            } catch (err) {
+                console.error("Failed to fetch calendar events:", err);
+            } finally {
+                setLoadingEvents(false);
+            }
+        };
+        fetchEvents();
+    }, []);
+
     const handleCreate = (type) => {
         const id = create("Untitled Workspace", type);
         setShowModal(false);
         navigate(`/dashboard/workspace/${id}`);
+    };
+
+    const formatEventDate = (isoString) => {
+        const date = new Date(isoString);
+        const today = new Date();
+        const tomorrow = new Date();
+        tomorrow.setDate(today.getDate() + 1);
+
+        const isToday = date.toDateString() === today.toDateString();
+        const isTomorrow = date.toDateString() === tomorrow.toDateString();
+
+        const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        if (isToday) return `Today, ${time}`;
+        if (isTomorrow) return `Tomorrow, ${time}`;
+        return `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${time}`;
     };
 
     return (
@@ -39,21 +72,47 @@ const HomePage = () => {
 
             {/* Calendar widget */}
             <div className="mt-10 w-full max-w-lg card-gradient p-6">
-                <div className="flex items-center gap-2 mb-4">
-                    <Calendar size={20} className="text-primary" />
-                    <h2 className="text-lg font-semibold text-foreground">Upcoming Events</h2>
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                        <Calendar size={20} className="text-primary" />
+                        <h2 className="text-lg font-semibold text-foreground">Upcoming Events</h2>
+                    </div>
+                    <button
+                        onClick={() => navigate("/dashboard/calendar")}
+                        className="text-xs text-primary hover:underline flex items-center gap-0.5"
+                    >
+                        View Calendar <ChevronRight size={12} />
+                    </button>
                 </div>
+
                 <div className="space-y-3">
-                    {mockEvents.map((ev) => (
-                        <div key={ev.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-700/50">
-                            <div className={`w-2 h-2 rounded-full ${ev.color.split(" ")[0].replace("/20", "")}`}
-                                style={{ background: "currentColor" }} />
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-foreground">{ev.title}</p>
-                                <p className="text-xs text-muted-foreground">{ev.date}</p>
-                            </div>
+                    {loadingEvents ? (
+                        <div className="flex flex-col items-center justify-center py-8 gap-3 text-muted-foreground">
+                            <Loader2 size={24} className="animate-spin text-primary/40" />
+                            <p className="text-xs">Fetching your schedule...</p>
                         </div>
-                    ))}
+                    ) : events.length > 0 ? (
+                        events.map((ev) => (
+                            <div
+                                key={ev.id}
+                                onClick={() => navigate("/dashboard/calendar")}
+                                className="flex items-center gap-3 p-3 rounded-lg bg-surface-700/50 hover:bg-surface-600/50 cursor-pointer transition-colors border border-transparent hover:border-primary/20"
+                            >
+                                <div
+                                    className="w-2 h-2 rounded-full"
+                                    style={{ backgroundColor: ev.color || "var(--primary)" }}
+                                />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-foreground truncate">{ev.title}</p>
+                                    <p className="text-xs text-muted-foreground">{formatEventDate(ev.start_time)}</p>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-8 rounded-lg border border-dashed border-border text-muted-foreground">
+                            <p className="text-sm italic">No upcoming events found</p>
+                        </div>
+                    )}
                 </div>
             </div>
 
