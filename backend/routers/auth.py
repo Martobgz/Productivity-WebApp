@@ -9,28 +9,39 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/signup")
 def signup(user: UserCreate, db: Session = Depends(get_db)):
-    existing_user = db.query(User).filter(User.email == user.email).first()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+    try:
+        print(f"DEBUG: Received signup request for {user.email}")
+        print(f"DEBUG: Password type: {type(user.password)}")
+        print(f"DEBUG: Password length: {len(user.password)}")
+        print(f"DEBUG: Password content start: {user.password[:3]}...")
+        
+        existing_user = db.query(User).filter(User.email == user.email).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already registered")
 
-    new_user = User(
-        email=user.email,
-        hashed_password=hash_password(user.password),
-        display_name=user.email.split("@")[0]
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+        new_user = User(
+            email=user.email,
+            hashed_password=hash_password(user.password),
+            display_name=user.full_name or user.email.split("@")[0]
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
 
-    token = create_access_token({"sub": new_user.email})
+        token = create_access_token({"sub": new_user.email})
 
-    return {
-        "data": {
-            "session": {
-                "access_token": token
+        return {
+            "data": {
+                "session": {
+                    "access_token": token
+                }
             }
         }
-    }
+    except Exception as e:
+        print(f"ERROR in signup: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
